@@ -12,7 +12,7 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol):
 
     config_yaml=read_config(os.path.join(source,'data-sort.yaml'))
 
-    # this can override defaults, double check everything
+    # gather all json files, and now figure out which files are associated with which json files
 
     listing=[os.path.join(source,f) for f in os.listdir(source) if os.path.isfile(f)]
     listing_json=[f for f in listing if f.endswith('.json')]
@@ -21,6 +21,14 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol):
 
     dict_json={}
     dict_manifest={}
+
+    # map out the keys for the path builder
+
+    base_dict={
+            'keys':{ k:config_yaml['map'] for k in config_yaml['keys'] },
+            'value':''
+            'root':destination
+            }
 
     for file in listing_json:
         print('Found json file '+file)
@@ -32,8 +40,19 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol):
         listing_manifest=[f for f in listing if f.startswith(basename) and not f==file]
         dict_manifest[file]=listing_manifest
 
+        generators=[]
+
+        for k,v in base_dicts['keys']:
+            generators.append=find_key(k,dict_json)
+
+        base_dict['value']=next(generators,'mousey mouse')
+
+
+
+
         # build a path
 
+        #build_path(key_dict,config_yaml['path'])
 
 
 # good idea from https://stackoverflow.com/questions/9807634/\
@@ -93,7 +112,14 @@ def merge_dicts(dict1, dict2):
 
     return merge_dict
 
-def build_path(keys, path_string):
+def build_path(key_dict, path_string):
+
+    # try:
+    #     for key,value in key_dict:
+    #         re.sub()
+    #
+    # except Exception:
+    #     print('Could not build path')
     pass
 
 if __name__ == "__main__":
