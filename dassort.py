@@ -7,9 +7,10 @@ import os, json, pprint, yaml, re, itertools, click, time, sys
 @click.option('--dry-run', type=bool, is_flag=True)
 @click.option('--copy-protocol','-p', type=str, default='scp')
 @click.option('--delete', type=bool, is_flag=True)
-@click.option('--remote-host','-r',type=str, envvar='DASSORT_HOST', default='o2.hms.harvard.edu')
+@click.option('--remote-host','-r',type=str, envvar='DASSORT_HOST', default='transfer.rc.hms.harvard.edu')
+@click.option('--cmd-host','-c',type=str, envvar='DASSORT_CMDHOST', default='o2.hms.harvard.edu')
 @click.option('--remote-user','-u',type=str, envvar='DASSORT_USER', default='johanedoe')
-def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remote_host,remote_user):
+def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remote_host, cmd_host, remote_user):
     # up front make sure we have a dassort.yaml file in the
     # source directory, otherwise we don't have much to work with!
 
@@ -50,6 +51,7 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
     remote_options={
             'user':remote_user,
             'host':remote_host,
+            'cmd_host':cmd_host
         }
 
     if 'destination' in config_yaml:
@@ -63,6 +65,7 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
             print('Sleeping for '+str(wait_time)+' seconds')
+            #TODO: exponential back off policy?
             time.sleep(wait_time)
         except KeyboardInterrupt:
             print('Quitting...')
@@ -202,7 +205,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             if not dry_run:
                 status=os.system(dir_cmd)
                 if status==0:
-                    print('Directory creation succesful, copying...')
+                    print('Directory creation/check succesful, copying...')
                     status=os.system(cp_cmd)
                     if status==0 and delete:
                         print('Copy succeeded, deleting file')
@@ -215,14 +218,29 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             elif dry_run and delete:
                 print('Would delete: '+os.path.join(new_path,f))
 
+        issue_options={
+            'user':'',
+            'host':'',
+            'cmd_host':'',
+            'path':''
+        }
 
         for ext,cmd in zip(base_dict['command']['exts'],base_dict['command']['run']):
             triggers=[f for f in listing_manifest if f.endswith(ext)]
             if triggers and not dry_run:
-                issue_cmd=build_path({'path':os.path.join(new_path,os.path.basename(triggers[0]))},cmd)
+                issue_options['path']=os.path.join(new_path,os.path.basename(triggers[0]))
+                issue_options=merge_dicts(issue_options,remote_options)
+                issue_cmd=build_path(issue_options,cmd)
                 print('Issuing command '+issue_cmd)
+                status=os.system(issue_cmd)
+                if status==0:
+                    print('Command SUCCESS')
+                else:
+                    print('Command FAIL')
             elif triggers:
-                issue_cmd=build_path({'path':os.path.join(new_path,os.path.basename(triggers[0]))},cmd)
+                issue_options['path']=os.path.join(new_path,os.path.basename(triggers[0]))
+                issue_options=merge_dicts(issue_options,remote_options)
+                issue_cmd=build_path(issue_options,cmd)
                 print('Would issue command '+issue_cmd)
 
 

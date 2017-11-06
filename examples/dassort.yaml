@@ -1,0 +1,9 @@
+dassort:
+  json:
+    keys: ['SubjectName','subject_name','SessionName','session_name']
+    map:  ['subject','subject','session','session']
+  path: ${root}/${subject}/
+  command:
+    exts: ['depth.dat','.tar.gz']
+    run: ['ssh ${user}@{cmd_host} "kinect_extract_it.sh -i ${path}"','ssh ${user}@${cmd_host} "kinect_extract_it.sh -i ${path}"']
+  destination: '/groups/datta/Jeff/workspace/dassort_test'
