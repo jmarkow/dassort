@@ -42,7 +42,6 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
 
     while True:
         try:
-
             # gather all json files, and now figure out which files are associated with which json files
 
             listing=[os.path.join(source,f) for f in os.listdir(source) if os.path.isfile(f)]
@@ -62,9 +61,11 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
             proc_loop(listing=listing_dirs+listing_json,base_dict=base_dict,
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
+
             print('Sleeping for '+str(wait_time)+' seconds')
             #TODO: exponential back off policy?
             time.sleep(wait_time)
+
         except KeyboardInterrupt:
             print('Quitting...')
             break
@@ -136,15 +137,6 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         print('Processing '+proc)
         sz=os.path.getsize(proc)
 
-        print('Current size '+str(sz)+' bytes')
-        time.sleep(5)
-        sz2=os.path.getsize(proc)
-        print('New size '+str(sz2)+' bytes')
-
-        if sz2>sz:
-            print('Size changed, moving on...')
-            continue
-
         if os.path.isdir(proc):
             isdir=True
             tmp_listing=os.listdir(proc)
@@ -157,6 +149,18 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             filename=os.path.splitext(os.path.basename(proc))[0]
             dirname=os.path.dirname(proc)
             listing_manifest=[os.path.join(dirname,f) for f in os.listdir(dirname) if f.startswith(filename)]
+
+        # loop through manifest, make sure the files are not growing...
+
+        print('Getting file sizes for manifest')
+        listing_sz={f:os.path.getsize(f) for f in listing_manifest}
+        time.sleep(5)
+        print('Checking file sizes again')
+        listing_sz2={f:os.path.getsize(f) for f in listing_manifest}
+
+        if listing_sz!=listing_sz2:
+            print('A file size changed, continuing...')
+            continue
 
         print('Found json file '+json_file)
 
