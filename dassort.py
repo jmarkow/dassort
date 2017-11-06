@@ -6,9 +6,10 @@ import os, json, pprint, yaml, re, itertools, click, time, sys
 @click.option('--wait-time','-w', type=float, default=30)
 @click.option('--dry-run', type=bool, is_flag=True)
 @click.option('--copy-protocol','-p', type=str, default='scp')
+@click.option('--delete', type=bool, is_flag=True)
 @click.option('--remote-host','-r',type=str, envvar='DASSORT_HOST', default='o2.hms.harvard.edu')
 @click.option('--remote-user','-u',type=str, envvar='DASSORT_USER', default='johanedoe')
-def dassort(source, destination, wait_time, dry_run, copy_protocol,remote_host,remote_user):
+def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remote_host,remote_user):
     # up front make sure we have a dassort.yaml file in the
     # source directory, otherwise we don't have much to work with!
 
@@ -59,15 +60,16 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol,remote_host,r
     while True:
         try:
             proc_loop(listing=listing_dirs+listing_json,base_dict=base_dict,
-                      copy_protocol=copy_protocol,dry_run=dry_run,remote_options=remote_options)
+                      copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
+                      remote_options=remote_options)
             print('Sleeping for '+str(wait_time)+' seconds')
             time.sleep(wait_time)
         except KeyboardInterrupt:
             print('Quitting...')
             break
         except Exception as e:
-            raise Exception, "The code is buggy: %s" % e, sys.exc_info()[2]
-            break
+            #raise Exception("The code is buggy: %s" % (e, sys.exc_info()[2]))
+            raise
 
 
 
@@ -128,7 +130,7 @@ def build_path(key_dict, path_string):
             path_string=re.sub('\$\{'+key+'\}',value,path_string)
     return path_string
 
-def proc_loop(listing,base_dict,copy_protocol,dry_run,remote_options):
+def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
     for proc in listing:
         print('Processing '+proc)
         sz=os.path.getsize(proc)
@@ -178,26 +180,41 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,remote_options):
 
         # build a path
         new_path=build_path(base_dict['path']['re'],base_dict['path']['path_string'])
-
         # check for command triggers
 
         print('Sending manifest to '+new_path)
 
         # aiight dawg, one trigger per manifest?
 
-
         for f in listing_manifest:
             if copy_protocol=='scp':
-                cp_cmd="scp %s %s@%s:%s" % (os.path.join(new_path,f),remote_options['user'],remote_options['host'],new_path)
+                # dir check
+                dir_cmd="ssh %s@%s 'mkdir -p %s'" % (remote_options['user'],remote_options['host'],new_path)
+                cp_cmd="scp %s %s@%s:%s" % (f,remote_options['user'],remote_options['host'],new_path)
             elif copy_protocol=='rsync':
-                raise NotImplementedError("To be implemented")
+                raise NotImplementedError
             else:
-                raise NotImplementedError("To be implemented")
+                raise NotImplementedError
 
-            print(cp_cmd)
+            print('Chk command:  '+dir_cmd)
+            print('Copy command: '+cp_cmd)
 
             if not dry_run:
-                raise NotImplemented("To be implemented")
+                status=os.system(dir_cmd)
+                if status==0:
+                    print('Directory creation succesful, copying...')
+                    status=os.system(cp_cmd)
+                    if status==0 and delete:
+                        print('Copy succeeded, deleting file')
+                        os.remove(os.path.join(new_path,f))
+                    elif status==0:
+                        print('Copy SUCCESS, continuing')
+                    else:
+                        print('Copy FAILED, continuing')
+                        continue
+            elif dry_run and delete:
+                print('Would delete: '+os.path.join(new_path,f))
+
 
         for ext,cmd in zip(base_dict['command']['exts'],base_dict['command']['run']):
             triggers=[f for f in listing_manifest if f.endswith(ext)]
