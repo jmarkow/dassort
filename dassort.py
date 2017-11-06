@@ -136,7 +136,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         sz=os.path.getsize(proc)
 
         print('Current size '+str(sz)+' bytes')
-        time.sleep(1)
+        time.sleep(5)
         sz2=os.path.getsize(proc)
         print('New size '+str(sz2)+' bytes')
 
