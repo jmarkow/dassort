@@ -16,25 +16,6 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
 
     config_yaml=read_config(os.path.join(source,'dassort.yaml'))
 
-    # gather all json files, and now figure out which files are associated with which json files
-
-    listing=[os.path.join(source,f) for f in os.listdir(source) if os.path.isfile(f)]
-    listing_json=[f for f in listing if f.endswith('.json')]
-    listing_dirs_tmp=[os.path.join(source,f) for f in os.listdir(source) if os.path.isdir(f)]
-    listing_dirs=[]
-
-    # each json file becomes a key, find any associated files...
-    # if any sub directories have json files, let 'er rip
-
-    for dir in listing_dirs_tmp:
-        dir_listing=os.listdir(dir)
-        dir_json=[f for f in dir_listing if f.endswith('.json')]
-        if len(dir_json)>0:
-            listing_dirs.append(dir)
-
-    dict_json={}
-    dict_manifest={}
-
     # map out the keys for the path builder
 
     base_dict={
@@ -61,6 +42,23 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
 
     while True:
         try:
+
+            # gather all json files, and now figure out which files are associated with which json files
+
+            listing=[os.path.join(source,f) for f in os.listdir(source) if os.path.isfile(f)]
+            listing_json=[f for f in listing if f.endswith('.json')]
+            listing_dirs_tmp=[os.path.join(source,f) for f in os.listdir(source) if os.path.isdir(f)]
+            listing_dirs=[]
+
+            # each json file becomes a key, find any associated files...
+            # if any sub directories have json files, let 'er rip
+
+            for dir in listing_dirs_tmp:
+                dir_listing=os.listdir(dir)
+                dir_json=[f for f in dir_listing if f.endswith('.json')]
+                if len(dir_json)>0:
+                    listing_dirs.append(dir)
+
             proc_loop(listing=listing_dirs+listing_json,base_dict=base_dict,
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
@@ -227,7 +225,9 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
 
         for ext,cmd in zip(base_dict['command']['exts'],base_dict['command']['run']):
             triggers=[f for f in listing_manifest if f.endswith(ext)]
-            if triggers and not dry_run:
+            if triggers and not dry_run and not delete:
+                raise NameError("Delete option must be turned on, otherwise triggers will repeat")
+            elif triggers and not dry_run:
                 issue_options['path']=os.path.join(new_path,os.path.basename(triggers[0]))
                 issue_options=merge_dicts(issue_options,remote_options)
                 issue_cmd=build_path(issue_options,cmd)
