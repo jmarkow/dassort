@@ -2,6 +2,7 @@ dassort:
   json:
     keys: ['SubjectName','subject_name']
     map:  ['subject']
+    default: ['mousey mouse']
   path: ${root}/${subject}/
   command:
     exts: ['depth.dat','.tar.gz']

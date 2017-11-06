@@ -23,6 +23,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
     base_dict={
             'keys':config_yaml['keys'],
             'map':config_yaml['map'],
+            'default':config_yaml['default'],
             'value':[],
             'path':{
                     'path_string':config_yaml['path'],
@@ -105,6 +106,7 @@ def read_config(file):
     config = {
             'keys':[],
             'map':[],
+            'default':[],
             'path':None,
             'destination':None,
             'command':{
@@ -181,8 +183,8 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         print('Manifest ['+','.join(listing_manifest)+']')
         generators=[]
 
-        for m in base_dict['map']:
-            base_dict['path']['re'][m]=None
+        for m,d in zip(base_dict['map'],base_dict['default']):
+            base_dict['path']['re'][m]=d
 
         for k,v in zip(base_dict['keys'],itertools.cycle(base_dict['map'])):
             generators=find_key(k,dict_json)
