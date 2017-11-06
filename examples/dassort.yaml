@@ -1,9 +1,9 @@
 dassort:
   json:
-    keys: ['SubjectName','subject_name','SessionName','session_name']
-    map:  ['subject','subject','session','session']
+    keys: ['SubjectName','subject_name']
+    map:  ['subject']
   path: ${root}/${subject}/
   command:
     exts: ['depth.dat','.tar.gz']
-    run: ['ssh ${user}@{cmd_host} "kinect_extract_it.sh -i ${path}"','ssh ${user}@${cmd_host} "kinect_extract_it.sh -i ${path}"']
-  destination: '/groups/datta/Jeff/workspace/dassort_test'
+    run: ['ssh ${user}@${cmd_host} "kinect_extract_it.sh -i ${path} -e o2 -c --matlab-path /n/app/matlab/2016b/bin/"']
+  destination: '/n/groups/datta/Jeff/workspace/dassort_test'

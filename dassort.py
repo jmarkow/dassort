@@ -3,17 +3,19 @@ import os, json, pprint, yaml, re, itertools, click, time, sys
 @click.command()
 @click.option('--source','-s', type=click.Path(exists=True), envvar='DASSORT_SOURCE', default=os.getcwd())
 @click.option('--destination','-d', type=str, envvar='DASSORT_DESTINATION', default=os.path.join(os.getcwd(),'tmp'))
-@click.option('--wait-time','-w', type=float, default=30)
+@click.option('--wait-time','-w', type=click.IntRange(2,None), default=2)
+@click.option('--max-time','-m', type=float, default=3600)
 @click.option('--dry-run', type=bool, is_flag=True)
 @click.option('--copy-protocol','-p', type=str, default='scp')
 @click.option('--delete', type=bool, is_flag=True)
 @click.option('--remote-host','-r',type=str, envvar='DASSORT_HOST', default='transfer.rc.hms.harvard.edu')
 @click.option('--cmd-host','-c',type=str, envvar='DASSORT_CMDHOST', default='o2.hms.harvard.edu')
 @click.option('--remote-user','-u',type=str, envvar='DASSORT_USER', default='johanedoe')
-def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remote_host, cmd_host, remote_user):
+def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, delete, remote_host, cmd_host, remote_user):
     # up front make sure we have a dassort.yaml file in the
     # source directory, otherwise we don't have much to work with!
 
+    wait_time=float(wait_time)
     config_yaml=read_config(os.path.join(source,'dassort.yaml'))
 
     # map out the keys for the path builder
@@ -39,7 +41,6 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
         base_dict['path']['re']['root']=config_yaml['destination']
     # enter the main loop to watch directories
 
-
     while True:
         try:
             # gather all json files, and now figure out which files are associated with which json files
@@ -58,13 +59,17 @@ def dassort(source, destination, wait_time, dry_run, copy_protocol, delete, remo
                 if len(dir_json)>0:
                     listing_dirs.append(dir)
 
-            proc_loop(listing=listing_dirs+listing_json,base_dict=base_dict,
+            listing_total=listing_dirs+listing_json
+            proc_loop(listing=listing_total,base_dict=base_dict,
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
 
             print('Sleeping for '+str(wait_time)+' seconds')
             #TODO: exponential back off policy?
             time.sleep(wait_time)
+            if not listing_total:
+                wait_time*=wait_time
+                wait_time=min(wait_time,max_time)
 
         except KeyboardInterrupt:
             print('Quitting...')
@@ -179,7 +184,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         for m in base_dict['map']:
             base_dict['path']['re'][m]=None
 
-        for k,v in zip(base_dict['keys'],base_dict['map']):
+        for k,v in zip(base_dict['keys'],itertools.cycle(base_dict['map'])):
             generators=find_key(k,dict_json)
             base_dict['path']['re'][v]=next(generators,base_dict['path']['re'][v])
 
@@ -227,7 +232,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             'path':''
         }
 
-        for ext,cmd in zip(base_dict['command']['exts'],base_dict['command']['run']):
+        for ext,cmd in zip(base_dict['command']['exts'],itertools.cycle(base_dict['command']['run'])):
             triggers=[f for f in listing_manifest if f.endswith(ext)]
             if triggers and not dry_run and not delete:
                 raise NameError("Delete option must be turned on, otherwise triggers will repeat")
