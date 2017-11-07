@@ -139,34 +139,45 @@ def build_path(key_dict, path_string):
             path_string=re.sub('\$\{'+key+'\}',value,path_string)
     return path_string
 
+def get_listing_manifest(proc):
+    if os.path.isdir(proc):
+        isdir=True
+        tmp_listing=os.listdir(proc)
+        tmp_json=[os.path.join(proc,f) for f in tmp_listing if f.endswith('.json')]
+        json_file=tmp_json[0]
+        listing_manifest=[os.path.join(proc,f) for f in tmp_listing if os.path.isfile(os.path.join(proc,f))]
+    else:
+        isdir=False
+        json_file=proc
+        filename=os.path.splitext(os.path.basename(proc))[0]
+        dirname=os.path.dirname(proc)
+        listing_manifest=[os.path.join(dirname,f) for f in os.listdir(dirname) if f.startswith(filename)]
+
+    return listing_manifest,json_file
+
+
 def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
     for proc in listing:
         print('Processing '+proc)
         sz=os.path.getsize(proc)
 
-        if os.path.isdir(proc):
-            isdir=True
-            tmp_listing=os.listdir(proc)
-            tmp_json=[os.path.join(proc,f) for f in tmp_listing if f.endswith('.json')]
-            json_file=tmp_json[0]
-            listing_manifest=[os.path.join(proc,f) for f in tmp_listing if os.path.isfile(os.path.join(proc,f))]
-        else:
-            isdir=False
-            json_file=proc
-            filename=os.path.splitext(os.path.basename(proc))[0]
-            dirname=os.path.dirname(proc)
-            listing_manifest=[os.path.join(dirname,f) for f in os.listdir(dirname) if f.startswith(filename)]
-
         # loop through manifest, make sure the files are not growing...
+
+        listing_manifest,json_file=get_listing_manifest(proc=proc)
+
+        if len(listing_manifest)<=1:
+            print('Manifest empty, continuing...(maybe files still copying?)')
+            continue
 
         print('Getting file sizes for manifest')
         listing_sz={f:os.path.getsize(f) for f in listing_manifest}
-        time.sleep(5)
+        time.sleep(10)
+        listing_manifest,json_file=get_listing_manifest(proc=proc)
         print('Checking file sizes again')
         listing_sz2={f:os.path.getsize(f) for f in listing_manifest}
 
         if listing_sz!=listing_sz2:
-            print('A file size changed, continuing...')
+            print('A file size changed or a new file was added, continuing...')
             continue
 
         print('Found json file '+json_file)
