@@ -42,6 +42,8 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
         base_dict['path']['re']['root']=config_yaml['destination']
     # enter the main loop to watch directories
 
+    sleep_time=wait_time
+
     while True:
         try:
             # gather all json files, and now figure out which files are associated with which json files
@@ -67,10 +69,12 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
 
             print('Sleeping for '+str(wait_time)+' seconds')
             #TODO: exponential back off policy?
-            time.sleep(wait_time)
+            time.sleep(sleep_time)
             if not listing_total:
-                wait_time*=wait_time
-                wait_time=min(wait_time,max_time)
+                sleep_time*=sleep_time
+                sleep_time=min(sleep_time,max_time)
+            else:
+                sleep_time=wait_time
 
         except KeyboardInterrupt:
             print('Quitting...')
