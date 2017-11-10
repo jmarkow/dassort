@@ -67,7 +67,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
 
-            print('Sleeping for '+str(wait_time)+' seconds')
+            print('Sleeping for '+str(sleep_time)+' seconds')
             #TODO: exponential back off policy?
             time.sleep(sleep_time)
             if not listing_total:
