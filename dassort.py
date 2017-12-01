@@ -23,7 +23,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
     config_yaml=read_config(os.path.join(source,'dassort.yaml'))
 
     # map out the keys for the path builder
-    # TODO: switch to a basic logger with timestamps
+    # TODO: more intelligent logging levels?
 
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
                         format="[%(asctime)s]: %(message)s",
