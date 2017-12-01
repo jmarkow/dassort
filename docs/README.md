@@ -18,7 +18,7 @@ pip install -e .
 
 ## Usage
 
-![How to do it][/docs/dassort_example.gif]
+![How to do it](/docs/dassort_example.gif)
 
 `dassort` is meant to be run in a directory that contains a `dassort.yaml` configuration file. 
 
