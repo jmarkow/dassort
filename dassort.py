@@ -1,4 +1,4 @@
-import os, json, pprint, yaml, re, itertools, click, time, sys
+import os, json, pprint, yaml, re, itertools, click, time, sys, copy, logging
 
 @click.command()
 @click.option('--source','-s', type=click.Path(exists=True), envvar='DASSORT_SOURCE', default=os.getcwd())
@@ -19,6 +19,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
     config_yaml=read_config(os.path.join(source,'dassort.yaml'))
 
     # map out the keys for the path builder
+    # TODO: switch to a basic logger with timestamps
 
     base_dict={
             'keys':config_yaml['keys'],
@@ -42,7 +43,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
         base_dict['path']['re']['root']=config_yaml['destination']
     # enter the main loop to watch directories
 
-    sleep_time=wait_time
+    sleep_time=copy.deepcopy(wait_time)
 
     while True:
         try:
@@ -63,15 +64,15 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                     listing_dirs.append(dir)
 
             listing_total=listing_dirs+listing_json
-            proc_loop(listing=listing_total,base_dict=base_dict,
+            proc_count=proc_loop(listing=listing_total,base_dict=base_dict,
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
 
             print('Sleeping for '+str(sleep_time)+' seconds')
             #TODO: exponential back off policy?
             time.sleep(sleep_time)
-            if not listing_total:
-                sleep_time*=sleep_time
+            if proc_count==0:
+                sleep_time*=2
                 sleep_time=min(sleep_time,max_time)
             else:
                 sleep_time=wait_time
@@ -139,8 +140,8 @@ def merge_dicts(dict1, dict2):
 
 def build_path(key_dict, path_string):
     for key,value in key_dict.items():
-        if value:
-            path_string=re.sub('\$\{'+key+'\}',value,path_string)
+        path_string=re.sub('\$\{'+key+'\}',value,path_string)
+
     return path_string
 
 def get_listing_manifest(proc):
@@ -161,7 +162,11 @@ def get_listing_manifest(proc):
 
 
 def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
+    proc_count=0
     for proc in listing:
+
+        use_dict=base_dict
+
         print('Processing '+proc)
         sz=os.path.getsize(proc)
 
@@ -190,7 +195,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             dict_json=json.load(open_file)
 
         if 'destination' in dict_json:
-            base_dict['path']['re']['root']=dict_json['destination']
+            use_dict['path']['re']['root']=dict_json['destination']
 
         # if it's a directory the manifest is the contents of the directory, if it's not the manifest
         # simply matches filenames
@@ -198,15 +203,23 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         print('Manifest ['+','.join(listing_manifest)+']')
         generators=[]
 
-        for m,d in zip(base_dict['map'],base_dict['default']):
-            base_dict['path']['re'][m]=d
+        for m,d in zip(use_dict['map'],use_dict['default']):
+            use_dict['path']['re'][m]=d
 
-        for k,v in zip(base_dict['keys'],itertools.cycle(base_dict['map'])):
+        for k,v in zip(use_dict['keys'],itertools.cycle(use_dict['map'])):
             generators=find_key(k,dict_json)
-            base_dict['path']['re'][v]=next(generators,base_dict['path']['re'][v])
+            use_dict['path']['re'][v]=next(generators,use_dict['path']['re'][v])
+
+
+        # sub folder is a special key to copy over the appropriate sub-folder
+
+        if os.path.isdir(proc):
+            use_dict['path']['re']['sub_folder']=os.path.basename(os.path.normpath(proc))+'/'
+        else:
+            use_dict['path']['re']['sub_folder']=''
 
         # build a path
-        new_path=build_path(base_dict['path']['re'],base_dict['path']['path_string'])
+        new_path=build_path(use_dict['path']['re'],use_dict['path']['path_string'])
         # check for command triggers
 
         print('Sending manifest to '+new_path)
@@ -216,8 +229,8 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         for f in listing_manifest:
             if copy_protocol=='scp':
                 # dir check
-                dir_cmd="ssh %s@%s 'mkdir -p %s'" % (remote_options['user'],remote_options['host'],new_path)
-                cp_cmd="scp %s %s@%s:%s" % (f,remote_options['user'],remote_options['host'],new_path)
+                dir_cmd="ssh %s@%s 'mkdir -p \"%s\"'" % (remote_options['user'],remote_options['host'],new_path)
+                cp_cmd="scp \"%s\" %s@%s:'\"%s\"'" % (f,remote_options['user'],remote_options['host'],new_path)
             elif copy_protocol=='rsync':
                 raise NotImplementedError
             else:
@@ -233,9 +246,11 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
                     status=os.system(cp_cmd)
                     if status==0 and delete:
                         print('Copy succeeded, deleting file')
+                        proc_count+=1
                         os.remove(os.path.join(new_path,f))
                     elif status==0:
                         print('Copy SUCCESS, continuing')
+                        proc_count+=1
                     else:
                         print('Copy FAILED, continuing')
                         continue
@@ -249,7 +264,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             'path':''
         }
 
-        for ext,cmd in zip(base_dict['command']['exts'],itertools.cycle(base_dict['command']['run'])):
+        for ext,cmd in zip(use_dict['command']['exts'],itertools.cycle(use_dict['command']['run'])):
             triggers=[f for f in listing_manifest if f.endswith(ext)]
             if triggers and not dry_run and not delete:
                 raise NameError("Delete option must be turned on, otherwise triggers will repeat")
@@ -269,7 +284,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
                 issue_cmd=build_path(issue_options,cmd)
                 print('Would issue command '+issue_cmd)
 
-
+    return proc_count
 
 
 if __name__ == "__main__":
