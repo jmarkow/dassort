@@ -12,6 +12,10 @@ import os, json, pprint, yaml, re, itertools, click, time, sys, copy, logging
 @click.option('--cmd-host','-c',type=str, envvar='DASSORT_CMDHOST', default='o2.hms.harvard.edu')
 @click.option('--remote-user','-u',type=str, envvar='DASSORT_USER', default='johanedoe')
 def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, delete, remote_host, cmd_host, remote_user):
+    """Main outer loop for watching files
+
+    """
+
     # up front make sure we have a dassort.yaml file in the
     # source directory, otherwise we don't have much to work with!
 
@@ -86,9 +90,13 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
 
 
 
-# good idea from https://stackoverflow.com/questions/9807634/\
-# find-all-occurrences-of-a-key-in-nested-python-dictionaries-and-lists
 def find_key(key, var):
+    """Finds all occurrences of a key in a nested dictionary, useful for gobbling up
+    stuff from json files.
+
+    All credit due to https://stackoverflow.com/questions/9807634/\
+    find-all-occurrences-of-a-key-in-nested-python-dictionaries-and-lists
+    """
     if hasattr(var,'items'):
         for k, v in var.items():
             if k == key:
@@ -103,6 +111,14 @@ def find_key(key, var):
 
 
 def read_config(file):
+    """Simple yaml reader to parse config files
+
+    Args:
+        file: the yaml file to read the configuration from
+    Returns:
+        config: a dictionary with the json keys, the path variable they map to, and other bells and whistles...
+
+    """
     with open(file) as config_yaml:
         base_yaml=yaml.safe_load(config_yaml)
 
@@ -129,7 +145,15 @@ def read_config(file):
     return config
 
 def merge_dicts(dict1, dict2):
+    """Merge dictionary 2 values into dictionary 1, contingent on dictionary 1 containing
+    a given key.
 
+    Args:
+        dict1: source dictionary
+        dict2: merge dictionary
+    Returns:
+        merge_dict: dict2 merged into dict1
+    """
     merge_dict=dict1
 
     for key,value in dict1.items():
@@ -139,12 +163,35 @@ def merge_dicts(dict1, dict2):
     return merge_dict
 
 def build_path(key_dict, path_string):
+    """Takes our path string and replaces variables surrounded by braces and prefixed by $
+    with a particular value in a key dictionary
+
+    Args:
+        key_dict: dictionary where each key, value pair corresponds to a variable and its value
+        path_string: path string that specifies how to build our target path_string
+    Returns:
+        path_string: new path to use
+
+    For example, if the path_string is ${root}/${subject} and key_dict is {'root':'cooldrive','subject':'15781'}
+    the path_string is converted to cooldrive/15781
+    """
     for key,value in key_dict.items():
         path_string=re.sub('\$\{'+key+'\}',value,path_string)
 
     return path_string
 
 def get_listing_manifest(proc):
+    """Gets the files to ship off with a corresponding json file. If the json file lives in a sub-folder,
+    all files in the folder become part of the manifest, if it does not, then all files with a matching filename
+    become part of the manifest.
+
+    Args:
+        proc: File or directory to process
+    Returns:
+        listing_manifest: Files to process with json file
+        json_file: Json file associated with the manifest
+
+    """
     if os.path.isdir(proc):
         isdir=True
         tmp_listing=os.listdir(proc)
@@ -162,6 +209,9 @@ def get_listing_manifest(proc):
 
 
 def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
+    """Main processing loop
+
+    """
     proc_count=0
     for proc in listing:
 
