@@ -25,6 +25,10 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
     # map out the keys for the path builder
     # TODO: switch to a basic logger with timestamps
 
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
+                        format="[%(asctime)s]: %(message)s",
+                        datefmt="%Y-%m-%d %H:%M:%S")
+
     base_dict={
             'keys':config_yaml['keys'],
             'map':config_yaml['map'],
@@ -72,7 +76,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                       copy_protocol=copy_protocol,dry_run=dry_run,delete=delete,
                       remote_options=remote_options)
 
-            print('Sleeping for '+str(sleep_time)+' seconds')
+            logging.info('Sleeping for '+str(sleep_time)+' seconds')
             #TODO: exponential back off policy?
             time.sleep(sleep_time)
             if proc_count==0:
@@ -82,7 +86,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                 sleep_time=wait_time
 
         except KeyboardInterrupt:
-            print('Quitting...')
+            logging.info('Quitting...')
             break
         except Exception as e:
             #raise Exception("The code is buggy: %s" % (e, sys.exc_info()[2]))
@@ -217,7 +221,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
 
         use_dict=base_dict
 
-        print('Processing '+proc)
+        logging.info('Processing '+proc)
         sz=os.path.getsize(proc)
 
         # loop through manifest, make sure the files are not growing...
@@ -225,21 +229,21 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         listing_manifest,json_file=get_listing_manifest(proc=proc)
 
         if len(listing_manifest)<=1:
-            print('Manifest empty, continuing...(maybe files still copying?)')
+            logging.info('Manifest empty, continuing...(maybe files still copying?)')
             continue
 
-        print('Getting file sizes for manifest')
+        logging.info('Getting file sizes for manifest')
         listing_sz={f:os.path.getsize(f) for f in listing_manifest}
         time.sleep(10)
         listing_manifest,json_file=get_listing_manifest(proc=proc)
-        print('Checking file sizes again')
+        logging.info('Checking file sizes again')
         listing_sz2={f:os.path.getsize(f) for f in listing_manifest}
 
         if listing_sz!=listing_sz2:
-            print('A file size changed or a new file was added, continuing...')
+            logging.info('A file size changed or a new file was added, continuing...')
             continue
 
-        print('Found json file '+json_file)
+        logging.info('Found json file '+json_file)
 
         with open(json_file) as open_file:
             dict_json=json.load(open_file)
@@ -250,7 +254,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         # if it's a directory the manifest is the contents of the directory, if it's not the manifest
         # simply matches filenames
 
-        print('Manifest ['+','.join(listing_manifest)+']')
+        logging.info('Manifest ['+','.join(listing_manifest)+']')
         generators=[]
 
         for m,d in zip(use_dict['map'],use_dict['default']):
@@ -272,7 +276,7 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
         new_path=build_path(use_dict['path']['re'],use_dict['path']['path_string'])
         # check for command triggers
 
-        print('Sending manifest to '+new_path)
+        logging.info('Sending manifest to '+new_path)
 
         # aiight dawg, one trigger per manifest?
 
@@ -286,26 +290,26 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
             else:
                 raise NotImplementedError
 
-            print('Chk command:  '+dir_cmd)
-            print('Copy command: '+cp_cmd)
+            logging.info('Chk command:  '+dir_cmd)
+            logging.info('Copy command: '+cp_cmd)
 
             if not dry_run:
                 status=os.system(dir_cmd)
                 if status==0:
-                    print('Directory creation/check succesful, copying...')
+                    logging.info('Directory creation/check succesful, copying...')
                     status=os.system(cp_cmd)
                     if status==0 and delete:
-                        print('Copy succeeded, deleting file')
+                        logging.info('Copy succeeded, deleting file')
                         proc_count+=1
                         os.remove(os.path.join(new_path,f))
                     elif status==0:
-                        print('Copy SUCCESS, continuing')
+                        logging.info('Copy SUCCESS, continuing')
                         proc_count+=1
                     else:
-                        print('Copy FAILED, continuing')
+                        logging.info('Copy FAILED, continuing')
                         continue
             elif dry_run and delete:
-                print('Would delete: '+os.path.join(new_path,f))
+                logging.info('Would delete: '+os.path.join(new_path,f))
 
         issue_options={
             'user':'',
@@ -322,17 +326,17 @@ def proc_loop(listing,base_dict,copy_protocol,dry_run,delete,remote_options):
                 issue_options['path']=os.path.join(new_path,os.path.basename(triggers[0]))
                 issue_options=merge_dicts(issue_options,remote_options)
                 issue_cmd=build_path(issue_options,cmd)
-                print('Issuing command '+issue_cmd)
+                logging.info('Issuing command '+issue_cmd)
                 status=os.system(issue_cmd)
                 if status==0:
-                    print('Command SUCCESS')
+                    logging.info('Command SUCCESS')
                 else:
-                    print('Command FAIL')
+                    logging.info('Command FAIL')
             elif triggers:
                 issue_options['path']=os.path.join(new_path,os.path.basename(triggers[0]))
                 issue_options=merge_dicts(issue_options,remote_options)
                 issue_cmd=build_path(issue_options,cmd)
-                print('Would issue command '+issue_cmd)
+                logging.info('Would issue command '+issue_cmd)
 
     return proc_count
 
