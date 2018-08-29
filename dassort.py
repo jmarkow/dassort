@@ -57,7 +57,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
         else:
             raise RuntimeError('Yaml misspecification')
 
-    if router is not None and len(configs) == 2:
+    if router is not None:
         has_router = True
     else:
         has_router = False
@@ -94,12 +94,16 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
             listing_total = listing_dirs + listing_json
 
             if has_router:
+
                 router_status = parse_router(router, listing_dirs_json, listing_json)
                 proc_count = 0
+
                 for i, status in enumerate([True, False]):
                     new_listing = [lst for (lst, st) in zip(listing_total, router_status) if st is status]
                     fname = router['files'][i]
                     use_config = [(cfg[1], cfg[2]) for cfg in configs if cfg[0] == fname]
+                    if len(use_config) == 0:
+                        continue
                     proc_count += proc_loop(listing=new_listing,
                                             base_dict=use_config[0][0],
                                             copy_protocol=copy_protocol,
