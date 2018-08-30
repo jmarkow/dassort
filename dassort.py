@@ -48,7 +48,9 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                                       user=remote_user,
                                       cmd_host=cmd_host)
 
-        if router_config is not None:
+        if (router_config is not None
+            and len(router_config['key']) > 0
+            and len(router_config['files']) > 0):
             router = router_config
         elif base_config is not None and remote_config is None:
             configs.append((os.path.basename(yml), base_config, remote_defaults))
