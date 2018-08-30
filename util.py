@@ -190,6 +190,7 @@ def parse_router(router, dirs, files):
             with open(js, 'r') as j:
                 js_data.append(json.load(j))
         print(js_data)
+        print(router)
         if router['lowercase']:
             hits = [re.search(router_re, j[router['key']].lower())
                     is not None for j in js_data]
