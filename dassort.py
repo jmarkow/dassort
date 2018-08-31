@@ -46,7 +46,8 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                                       destination,
                                       host=remote_host,
                                       user=remote_user,
-                                      cmd_host=cmd_host)
+                                      cmd_host=cmd_host,
+                                      copy_protocol=copy_protocol)
 
         if (router_config is not None
             and len(router_config['key']) > 0
@@ -108,14 +109,12 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                         continue
                     proc_count += proc_loop(listing=new_listing,
                                             base_dict=use_config[0][0],
-                                            copy_protocol=copy_protocol,
                                             dry_run=dry_run,
                                             delete=delete,
                                             remote_options=use_config[0][1])
             else:
                 proc_count = proc_loop(listing=listing_total,
                                        base_dict=configs[0][1],
-                                       copy_protocol=copy_protocol,
                                        dry_run=dry_run,
                                        delete=delete,
                                        remote_options=configs[0][2])

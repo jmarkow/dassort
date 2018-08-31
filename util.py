@@ -27,7 +27,7 @@ def find_key(key, var):
                         yield result
 
 
-def read_config(file, destination=None, user=None, host=None, cmd_host=None):
+def read_config(file, destination=None, user=None, host=None, cmd_host=None, copy_protocol=None):
     """Simple yaml reader to parse config files
 
     Args:
@@ -65,6 +65,7 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None):
     remote_config = {
         'user': user,
         'host': host,
+        'copy_protocol': copy_protocol,
         'cmd_host': cmd_host,
     }
 
@@ -218,7 +219,7 @@ def parse_router(router, dirs, files):
     return router_status
 
 
-def proc_loop(listing, base_dict, copy_protocol, dry_run, delete, remote_options):
+def proc_loop(listing, base_dict, dry_run, delete, remote_options):
     """Main processing loop
 
     """
@@ -291,16 +292,16 @@ def proc_loop(listing, base_dict, copy_protocol, dry_run, delete, remote_options
         # aiight dawg, one trigger per manifest?
 
         for f in listing_manifest:
-            if copy_protocol == 'scp':
+            if remote_options['copy_protocol'] == 'scp':
                 # dir check
                 dir_cmd = "ssh %s@%s 'mkdir -p \"%s\"'" % (
                     remote_options['user'], remote_options['host'], new_path)
                 cp_cmd = "scp \"%s\" %s@%s:'\"%s\"'" % (
                     f, remote_options['user'], remote_options['host'], new_path)
-            elif copy_protocol == 'nocopy':
+            elif remote_options['copy_protocol'] == 'nocopy':
                 dir_cmd = ''
                 cp_cmd = ''
-            elif copy_protocol == 'rsync':
+            elif remote_options['copy_protocol'] == 'rsync':
                 raise NotImplementedError
             else:
                 raise NotImplementedError
