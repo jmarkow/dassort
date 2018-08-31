@@ -297,6 +297,9 @@ def proc_loop(listing, base_dict, copy_protocol, dry_run, delete, remote_options
                     remote_options['user'], remote_options['host'], new_path)
                 cp_cmd = "scp \"%s\" %s@%s:'\"%s\"'" % (
                     f, remote_options['user'], remote_options['host'], new_path)
+            elif copy_protocol == 'nocopy':
+                dir_cmd = ''
+                cp_cmd = ''
             elif copy_protocol == 'rsync':
                 raise NotImplementedError
             else:
