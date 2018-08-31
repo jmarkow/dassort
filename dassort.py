@@ -12,7 +12,7 @@ from copy import deepcopy
 @click.option('--source', '-s', type=click.Path(exists=True), envvar='DASSORT_SOURCE', default=os.getcwd())
 @click.option('--destination', '-d', type=str, envvar='DASSORT_DESTINATION', default=os.path.join(os.getcwd(), 'tmp'))
 @click.option('--wait-time', '-w', type=click.IntRange(2, None), default=2)
-@click.option('--max-time', '-m', type=float, default=3600)
+@click.option('--max-time', '-m', type=float, default=600)
 @click.option('--dry-run', type=bool, is_flag=True)
 @click.option('--copy-protocol', '-p', type=str, default='scp')
 @click.option('--delete', type=bool, is_flag=True)

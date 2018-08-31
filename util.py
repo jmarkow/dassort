@@ -351,6 +351,8 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
                     logging.info('Command SUCCESS')
                 else:
                     logging.info('Command FAIL')
+            elif triggers and remote_options['copy_protocol'] == 'nocopy':
+                logging.info('nocopy, doing nothing')
             elif triggers:
                 issue_options['path'] = os.path.join(
                     new_path, os.path.basename(triggers[0]))
