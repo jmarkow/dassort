@@ -235,7 +235,8 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
         listing_manifest, json_file = get_listing_manifest(proc=proc)
 
-        if len(listing_manifest) <= 1:
+        # changed from <= 1 to < 1 to account for metadata.json getting orphaned...
+        if len(listing_manifest) < 1:
             logging.info(
                 'Manifest empty, continuing...(maybe files still copying?)')
             continue
