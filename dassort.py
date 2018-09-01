@@ -127,7 +127,7 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                 sleep_time *= 2
                 sleep_time = min(sleep_time, max_time)
             else:
-                sleep_time = wait_time
+                sleep_time = deepcopy(wait_time)
 
         except KeyboardInterrupt:
             logging.info('Quitting...')
