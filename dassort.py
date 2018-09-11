@@ -119,21 +119,20 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                                        delete=delete,
                                        remote_options=configs[0][2])
 
-
-            logging.info('Sleeping for ' + str(sleep_time) + ' seconds')
-            # TODO: exponential back off policy?
-            time.sleep(sleep_time)
             if proc_count == 0:
                 sleep_time *= 2
                 sleep_time = min(sleep_time, max_time)
             else:
                 sleep_time = deepcopy(wait_time)
 
+            logging.info('Sleeping for ' + str(sleep_time) + ' seconds')
+            time.sleep(sleep_time)
+
         except KeyboardInterrupt:
             logging.info('Quitting...')
             break
-        except Exception as e:
-            # raise Exception("The code is buggy: %s" % (e, sys.exc_info()[2]))
+        except Exception as error:
+            logging.error(error)
             raise
 
 
