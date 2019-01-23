@@ -233,7 +233,7 @@ def parse_router(router, dirs, files):
                                                   cycle(router['invert'])):
 
             if lowercase:
-                hit = re.search(filter, js_data[key].lower())
+                hit = re.search(filter, js_data[key], re.IGNORECASE)
             else:
                 hit = re.search(filter, js_data[key])
 
