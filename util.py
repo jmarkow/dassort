@@ -8,6 +8,17 @@ import hashlib
 from itertools import cycle
 
 
+# https://stackoverflow.com/questions/1131220/get-md5-hash-of-big-files-in-python
+def md5_checksum(f, block_size=2**20):
+    md5 = hashlib.md5()
+    while True:
+        data = f.read(block_size)
+        if not data:
+            break
+        md5.update(data)
+    return md5.hexdigest()
+
+
 def find_key(key, var):
     """Finds all occurrences of a key in a nested dictionary, useful for gobbling up
     stuff from json files.
@@ -96,7 +107,6 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
         remote_config = None
 
     # reformat base configuration
-
     if base_config is not None:
         base_config = {
             'keys': base_config['keys'],
@@ -338,7 +348,7 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
             elif remote_options['copy_protocol'] == 'rsync':
                 local_copy = False
                 raise NotImplementedError
-            elif remote_options['copy-protocol'] == 'cp':
+            elif remote_options['copy_protocol'] == 'cp':
                 local_copy = True
                 dir_cmd = "mkdir -p \"%s\"" % (new_path)
                 cp_cmd = "cp \"%s\" \"%s\"" % (f, new_path)
@@ -350,31 +360,34 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
             if not dry_run:
                 status = os.system(dir_cmd)
-                if local_copy:
-                    # check md5
-                    logging.info('Checking file integrity...')
-                    with open(f, 'rb') as f_check:
-                        md5_original = hashlib.md5(f_check.read()).hexdigest()
-                    with open(new_path, 'rb') as f_check:
-                        md5_copy = hashlib.md5(f_check.read()).hexdigest()
-                    md5checksum = md5_original == md5_copy
-                    logging.info('MD5checksum: ' + md5checksum)
-                    status = status & (not md5checksum)
 
                 if status == 0:
                     logging.info(
                         'Directory creation/check succesful, copying...')
                     status = os.system(cp_cmd)
-                    if status == 0 and delete:
-                        logging.info('Copy succeeded, deleting file')
-                        proc_count += 1
-                        os.remove(os.path.join(new_path, f))
-                    elif status == 0:
-                        logging.info('Copy SUCCESS, continuing')
-                        proc_count += 1
-                    else:
-                        logging.info('Copy FAILED, continuing')
-                        continue
+
+                if local_copy:
+                    # check md5
+                    logging.info('Checking file integrity...')
+                    with open(f, 'rb') as f_check:
+                        md5_original = md5_checksum(f_check)
+                    new_file = os.path.join(new_path, os.path.basename(f))
+                    with open(new_file, 'rb') as f_check:
+                        md5_copy = md5_checksum(f_check)
+                    md5checksum = md5_original == md5_copy
+                    logging.info('MD5checksum: ' + str(md5checksum))
+                    status = status & (not md5checksum)
+
+                if status == 0 and delete:
+                    logging.info('Copy succeeded, deleting file')
+                    proc_count += 1
+                    os.remove(os.path.join(new_path, f))
+                elif status == 0:
+                    logging.info('Copy SUCCESS, continuing')
+                    proc_count += 1
+                else:
+                    logging.info('Copy FAILED, continuing')
+                    continue
             elif dry_run and delete:
                 logging.info('Would delete: ' + os.path.join(new_path, f))
 
