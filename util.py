@@ -4,6 +4,7 @@ import re
 import logging
 import os
 import time
+import hashlib
 from itertools import cycle
 
 
@@ -325,15 +326,22 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
         for f in listing_manifest:
             if remote_options['copy_protocol'] == 'scp':
                 # dir check
+                local_copy = False
                 dir_cmd = "ssh %s@%s 'mkdir -p \"%s\"'" % (
                     remote_options['user'], remote_options['host'], new_path)
                 cp_cmd = "scp \"%s\" %s@%s:'\"%s\"'" % (
                     f, remote_options['user'], remote_options['host'], new_path)
             elif remote_options['copy_protocol'] == 'nocopy':
+                local_copy = False
                 dir_cmd = ''
                 cp_cmd = ''
             elif remote_options['copy_protocol'] == 'rsync':
+                local_copy = False
                 raise NotImplementedError
+            elif remote_options['copy-protocol'] == 'cp':
+                local_copy = True
+                dir_cmd = "mkdir -p \"%s\"" % (new_path)
+                cp_cmd = "cp \"%s\" \"%s\"" % (f, new_path)
             else:
                 raise NotImplementedError
 
@@ -342,6 +350,17 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
             if not dry_run:
                 status = os.system(dir_cmd)
+                if local_copy:
+                    # check md5
+                    logging.info('Checking file integrity...')
+                    with open(f, 'rb') as f_check:
+                        md5_original = hashlib.md5(f_check.read()).hexdigest()
+                    with open(new_path, 'rb') as f_check:
+                        md5_copy = hashlib.md5(f_check.read()).hexdigest()
+                    md5checksum = md5_original == md5_copy
+                    logging.info('MD5checksum: ' + md5checksum)
+                    status = status & (not md5checksum)
+
                 if status == 0:
                     logging.info(
                         'Directory creation/check succesful, copying...')
