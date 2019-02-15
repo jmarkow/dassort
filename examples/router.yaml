@@ -1,0 +1,21 @@
+# this file specifies which config to "route" to if a condition is met, any option can be a list
+router:
+  # which keys in the json file to match
+  key: 
+    - SessionName
+    - SubjectName
+    - SubjectName
+  # regex expressions to match
+  filter:
+    - sessiontype1|sessiontype2
+    - mouse1|mouse2|mouse3
+    - ofa
+  lowercase: True
+  # must the match be exact?
+  exact: False 
+  # ignore case?
+  invert: False
+  files:
+    - config1.yaml # where to route if regex 1 matches
+    - config2.yaml # where to route if regex 2 matches
+    - config3.yaml # where to route if regex 3 matches

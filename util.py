@@ -1,10 +1,10 @@
 import json
 import yaml
 import re
-import itertools
 import logging
 import os
 import time
+from itertools import cycle
 
 
 def find_key(key, var):
@@ -87,6 +87,10 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
     elif 'router' in base_yaml.keys():
         tree_yaml = base_yaml['router']
         router_config = merge_dicts(router_config, tree_yaml)
+        # all router items should be iterables
+        for k, v in router_config.items():
+            if type(v) is not list:
+                router_config[k] = [v]
         base_config = None
         remote_config = None
 
@@ -180,41 +184,67 @@ def get_listing_manifest(proc):
 def parse_router(router, dirs, files):
 
     router_status = []
-    if router['exact']:
-        router_re = r'\b{}\b'.format(router['filter'])
-    else:
-        router_re = r'{}'.format(router['filter'])
+    router_re = []
+    for filter, exact in zip(router['filter'], cycle(router['exact'])):
+        if exact:
+            router_re.append(r'\b{}\b'.format(filter))
+        else:
+            router_re.append(r'{}'.format(filter))
 
+    # first search directories
     for jsons in dirs:
         js_data = []
         for js in jsons:
             with open(js, 'r') as j:
                 js_data.append(json.load(j))
-        if router['lowercase']:
-            hits = [re.search(router_re, j[router['key']].lower())
-                    is not None for j in js_data]
-        else:
-            hits = [re.search(router_re, j[router['key']])
-                    is not None for j in js_data]
-        router_status.append(any(hits))
+        dir_status = []
+        for filter, key, lowercase, invert in zip(router_re,
+                                                  cycle(router['key']),
+                                                  cycle(router['lowercase']),
+                                                  cycle(router['invert'])):
+            if lowercase:
+                hits = [re.search(filter, j[key], re.IGNORECASE) is not None for j in js_data]
+            else:
+                hits = [re.search(filter, j[key]) is not None for j in js_data]
 
-    js_data = []
+            if invert:
+                dir_status.append(not any(hits))
+            else:
+                dir_status.append(any(hits))
+
+        try:
+            router_status.append(dir_status.index(True))
+        except ValueError:
+            router_status.append(None)
+
+    # then search files
     for js in files:
+
         with open(js, 'r') as j:
-            js_data.append(json.load(j))
+            js_data = json.load(j)
 
-    if router['lowercase']:
-        hits = [re.search(router_re, j[router['key']].lower())
-                is not None for j in js_data]
-    else:
-        hits = [re.search(router_re, j[router['key']])
-                is not None for j in js_data]
+        if js_data is None:
+            continue
 
-    if router['invert']:
-        router_status = [not status for status in router_status]
+        file_status = []
+        for filter, key, lowercase, invert in zip(router_re,
+                                                  cycle(router['key']),
+                                                  cycle(router['lowercase']),
+                                                  cycle(router['invert'])):
 
-    for hit in hits:
-        router_status.append(hit)
+            if lowercase:
+                hit = re.search(filter, js_data[key], re.IGNORECASE)
+            else:
+                hit = re.search(filter, js_data[key])
+
+            if invert:
+                hit = not hit
+
+            file_status.append(hit)
+        try:
+            router_status.append(file_status.index(True))
+        except ValueError:
+            router_status.append(None)
 
     return router_status
 
@@ -270,7 +300,7 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
         for m, d in zip(use_dict['map'], use_dict['default']):
             use_dict['path']['re'][m] = d
 
-        for k, v in zip(use_dict['keys'], itertools.cycle(use_dict['map'])):
+        for k, v in zip(use_dict['keys'], cycle(use_dict['map'])):
             generators = find_key(k, dict_json)
             use_dict['path']['re'][v] = next(
                 generators, use_dict['path']['re'][v])
@@ -336,7 +366,7 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
             'path': ''
         }
 
-        for ext, cmd in zip(use_dict['command']['exts'], itertools.cycle(use_dict['command']['run'])):
+        for ext, cmd in zip(use_dict['command']['exts'], cycle(use_dict['command']['run'])):
             triggers = [f for f in listing_manifest if f.endswith(ext)]
             if triggers and not dry_run and not delete:
                 raise NameError(

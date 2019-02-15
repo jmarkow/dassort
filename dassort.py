@@ -65,6 +65,9 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
     else:
         has_router = False
 
+    if len(configs) == 0:
+        raise RuntimeError('No configuration file found!')
+
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
                         format="[%(asctime)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S")
@@ -78,10 +81,10 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
             # gather all json files, and now figure out which files are associated with which json files
 
             listing = [os.path.join(source, f)
-                       for f in os.listdir(source) if os.path.isfile(f)]
+                       for f in sorted(os.listdir(source)) if os.path.isfile(f)]
             listing_json = [f for f in listing if f.endswith('.json')]
             listing_dirs_tmp = [os.path.join(source, f) for f
-                                in os.listdir(source) if os.path.isdir(f)]
+                                in sorted(os.listdir(source)) if os.path.isdir(f)]
             listing_dirs = []
             listing_dirs_json = []
             # each json file becomes a key, find any associated files...
@@ -100,11 +103,12 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
 
                 router_status = parse_router(router, listing_dirs_json, listing_json)
                 proc_count = 0
-
-                for i, status in enumerate([True, False]):
+                iter_status = set([_ for _ in router_status if _ is not None])
+                for status in iter_status:
                     new_listing = [lst for (lst, st) in zip(listing_total, router_status) if st is status]
-                    fname = router['files'][i]
+                    fname = router['files'][status]
                     use_config = [(cfg[1], cfg[2]) for cfg in configs if cfg[0] == fname]
+
                     if len(use_config) == 0:
                         continue
                     proc_count += proc_loop(listing=new_listing,
