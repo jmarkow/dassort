@@ -58,7 +58,8 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
         elif base_config is not None:
             configs.append((os.path.basename(yml), base_config, remote_config))
         else:
-            raise RuntimeError('Yaml misspecification')
+            pass
+            #raise RuntimeError('Yaml misspecification')
 
     if router is not None:
         has_router = True

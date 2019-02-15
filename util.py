@@ -105,6 +105,10 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
                 router_config[k] = [v]
         base_config = None
         remote_config = None
+    else:
+        base_config = None
+        remote_config = None
+        router_config = None
 
     # reformat base configuration
     if base_config is not None:
