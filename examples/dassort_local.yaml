@@ -11,6 +11,8 @@ dassort:
     exts: []
     run: []
   destination: './test_directory'
+  required_files:
+    - depth.dat
 # parameters for copying to a remote destination (copy_protocol nocopy will lead to deletion)
 remote:
   copy_protocol: cp

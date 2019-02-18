@@ -300,11 +300,18 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
                 'A file size changed or a new file was added, continuing...')
             continue
 
+        missing_files = False
+
         if base_dict['required_files'] is not None and len(base_dict['required_files']) > 0:
             basenames = [os.path.basename(_) for _ in listing_manifest]
-            if base_dict['required_files'] not in basenames:
-                logging.info('Could not find ' + base_dict['required_files'])
-                continue
+            for required_file in base_dict['required_files']:
+                if required_file not in basenames:
+                    logging.info('Could not find ' + required_file)
+                    missing_files = True
+
+        if missing_files:
+            logging.info('File missing, continuing...')
+            continue
 
         logging.info('Found json file ' + json_file)
 
