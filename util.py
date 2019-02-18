@@ -57,6 +57,7 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
         'keys': [],
         'map': [],
         'default': [],
+        'required_files': [],
         'path': None,
         'destination': destination,
         'command': {
@@ -116,6 +117,7 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
             'keys': base_config['keys'],
             'map': base_config['map'],
             'default': base_config['default'],
+            'required_files': base_config['required_files'],
             'value': [],
             'path': {
                 'path_string': base_config['path'],
@@ -297,6 +299,12 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
             logging.info(
                 'A file size changed or a new file was added, continuing...')
             continue
+
+        if base_dict['required_files'] is not None and len(base_dict['required_files']) > 0:
+            basenames = [os.path.basename(_) for _ in listing_manifest]
+            if base_dict['required_files'] not in basenames:
+                logging.info('Could not find ' + base_dict['required_files'])
+                continue
 
         logging.info('Found json file ' + json_file)
 
