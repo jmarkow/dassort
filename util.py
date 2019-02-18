@@ -179,21 +179,29 @@ def get_listing_manifest(proc):
         json_file: Json file associated with the manifest
 
     """
+    # json is always LAST since it may trigger other copies...
     if os.path.isdir(proc):
         isdir = True
         tmp_listing = os.listdir(proc)
         tmp_json = [os.path.join(proc, f)
-                    for f in tmp_listing if f.endswith('.json')]
+                    for f in tmp_listing
+                    if f.endswith('.json')]
         json_file = tmp_json[0]
-        listing_manifest = [os.path.join(
-            proc, f) for f in tmp_listing if os.path.isfile(os.path.join(proc, f))]
+        listing_manifest = [os.path.join(proc, f)
+                            for f in tmp_listing
+                            if os.path.isfile(os.path.join(proc, f))
+                            and not f.endswith('.json')]
+        [listing_manifest.append(_) for _ in tmp_json]
     else:
         isdir = False
         json_file = proc
         filename = os.path.splitext(os.path.basename(proc))[0]
         dirname = os.path.dirname(proc)
-        listing_manifest = [os.path.join(dirname, f) for f in os.listdir(
-            dirname) if f.startswith(filename)]
+        listing_manifest = [os.path.join(dirname, f)
+                            for f in os.listdir(dirname)
+                            if f.startswith(filename)
+                            and not f.endswith('.json')]
+        listing_manifest.append(json_file)
 
     return listing_manifest, json_file
 
