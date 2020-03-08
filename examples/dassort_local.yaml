@@ -1,18 +1,18 @@
+# this config will simply copy files to another directory
 dassort:
   json:
     keys: ['SubjectName','subject_name']
     map:  ['subject']
     default: ['unsorted']
   # build a path to copy to, json keys are mapped to the variable in map, ${root} is the destination folder, ${sub_folder}, for the originating sub-folder
-  path: ${root}/${subject}/
+  path: ${root}/${sub_folder}/
   command:
     # run commands if we encounter either files or directories with specific files
-    exts: ['depth.dat','.tar.gz']
-    run: ['ssh ${user}@${cmd_host} "kinect_extract_it.sh -i ${path} -e o2 -c --matlab-path /n/app/matlab/2016b/bin/"']
-  destination: '/n/groups/datta/Jeff/workspace/photometry_nac_d1d2'
+    exts: []
+    run: []
+  destination: './test_directory'
+  required_files:
+    - depth.dat
 # parameters for copying to a remote destination (copy_protocol nocopy will lead to deletion)
 remote:
-  user: MYLOGIN
-  host: HOST
-  copy_protocol: scp
-  cmd_host: HOST_RUN_CMD
+  copy_protocol: cp

@@ -4,7 +4,19 @@ import re
 import logging
 import os
 import time
+import hashlib
 from itertools import cycle
+
+
+# https://stackoverflow.com/questions/1131220/get-md5-hash-of-big-files-in-python
+def md5_checksum(f, block_size=2**20):
+    md5 = hashlib.md5()
+    while True:
+        data = f.read(block_size)
+        if not data:
+            break
+        md5.update(data)
+    return md5.hexdigest()
 
 
 def find_key(key, var):
@@ -45,6 +57,7 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
         'keys': [],
         'map': [],
         'default': [],
+        'required_files': [],
         'path': None,
         'destination': destination,
         'command': {
@@ -93,14 +106,18 @@ def read_config(file, destination=None, user=None, host=None, cmd_host=None, cop
                 router_config[k] = [v]
         base_config = None
         remote_config = None
+    else:
+        base_config = None
+        remote_config = None
+        router_config = None
 
     # reformat base configuration
-
     if base_config is not None:
         base_config = {
             'keys': base_config['keys'],
             'map': base_config['map'],
             'default': base_config['default'],
+            'required_files': base_config['required_files'],
             'value': [],
             'path': {
                 'path_string': base_config['path'],
@@ -162,21 +179,29 @@ def get_listing_manifest(proc):
         json_file: Json file associated with the manifest
 
     """
+    # json is always LAST since it may trigger other copies...
     if os.path.isdir(proc):
         isdir = True
         tmp_listing = os.listdir(proc)
         tmp_json = [os.path.join(proc, f)
-                    for f in tmp_listing if f.endswith('.json')]
+                    for f in tmp_listing
+                    if f.endswith('.json')]
         json_file = tmp_json[0]
-        listing_manifest = [os.path.join(
-            proc, f) for f in tmp_listing if os.path.isfile(os.path.join(proc, f))]
+        listing_manifest = [os.path.join(proc, f)
+                            for f in tmp_listing
+                            if os.path.isfile(os.path.join(proc, f))
+                            and not f.endswith('.json')]
+        [listing_manifest.append(_) for _ in tmp_json]
     else:
         isdir = False
         json_file = proc
         filename = os.path.splitext(os.path.basename(proc))[0]
         dirname = os.path.dirname(proc)
-        listing_manifest = [os.path.join(dirname, f) for f in os.listdir(
-            dirname) if f.startswith(filename)]
+        listing_manifest = [os.path.join(dirname, f)
+                            for f in os.listdir(dirname)
+                            if f.startswith(filename)
+                            and not f.endswith('.json')]
+        listing_manifest.append(json_file)
 
     return listing_manifest, json_file
 
@@ -283,6 +308,19 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
                 'A file size changed or a new file was added, continuing...')
             continue
 
+        missing_files = False
+
+        if base_dict['required_files'] is not None and len(base_dict['required_files']) > 0:
+            basenames = [os.path.basename(_) for _ in listing_manifest]
+            for required_file in base_dict['required_files']:
+                if required_file not in basenames:
+                    logging.info('Could not find ' + required_file)
+                    missing_files = True
+
+        if missing_files:
+            logging.info('File missing, continuing...')
+            continue
+
         logging.info('Found json file ' + json_file)
 
         with open(json_file) as open_file:
@@ -325,15 +363,22 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
         for f in listing_manifest:
             if remote_options['copy_protocol'] == 'scp':
                 # dir check
+                local_copy = False
                 dir_cmd = "ssh %s@%s 'mkdir -p \"%s\"'" % (
                     remote_options['user'], remote_options['host'], new_path)
                 cp_cmd = "scp \"%s\" %s@%s:'\"%s\"'" % (
                     f, remote_options['user'], remote_options['host'], new_path)
             elif remote_options['copy_protocol'] == 'nocopy':
+                local_copy = False
                 dir_cmd = ''
                 cp_cmd = ''
             elif remote_options['copy_protocol'] == 'rsync':
+                local_copy = False
                 raise NotImplementedError
+            elif remote_options['copy_protocol'] == 'cp':
+                local_copy = True
+                dir_cmd = "mkdir -p \"%s\"" % (new_path)
+                cp_cmd = "cp \"%s\" \"%s\"" % (f, new_path)
             else:
                 raise NotImplementedError
 
@@ -342,20 +387,34 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
             if not dry_run:
                 status = os.system(dir_cmd)
+
                 if status == 0:
                     logging.info(
                         'Directory creation/check succesful, copying...')
                     status = os.system(cp_cmd)
-                    if status == 0 and delete:
-                        logging.info('Copy succeeded, deleting file')
-                        proc_count += 1
-                        os.remove(os.path.join(new_path, f))
-                    elif status == 0:
-                        logging.info('Copy SUCCESS, continuing')
-                        proc_count += 1
-                    else:
-                        logging.info('Copy FAILED, continuing')
-                        continue
+
+                if local_copy:
+                    # check md5
+                    logging.info('Checking file integrity...')
+                    with open(f, 'rb') as f_check:
+                        md5_original = md5_checksum(f_check)
+                    new_file = os.path.join(new_path, os.path.basename(f))
+                    with open(new_file, 'rb') as f_check:
+                        md5_copy = md5_checksum(f_check)
+                    md5checksum = md5_original == md5_copy
+                    logging.info('MD5checksum: ' + str(md5checksum))
+                    status = status & (not md5checksum)
+
+                if status == 0 and delete:
+                    logging.info('Copy succeeded, deleting file')
+                    proc_count += 1
+                    os.remove(os.path.join(new_path, f))
+                elif status == 0:
+                    logging.info('Copy SUCCESS, continuing')
+                    proc_count += 1
+                else:
+                    logging.info('Copy FAILED, continuing')
+                    continue
             elif dry_run and delete:
                 logging.info('Would delete: ' + os.path.join(new_path, f))
 
