@@ -180,9 +180,12 @@ def get_listing_manifest(proc):
 
     """
     # json is always LAST since it may trigger other copies...
+    # https://stackoverflow.com/questions/44214910/select-the-first-n-smallest-files-from-a-folder
     if os.path.isdir(proc):
         isdir = True
+        # sort the listing by size, we want big files in the back
         tmp_listing = os.listdir(proc)
+        tmp_listing = sorted(tmp_listing, key=lambda x: os.path.getsize(os.path.join(proc, x)))
         tmp_json = [os.path.join(proc, f)
                     for f in tmp_listing
                     if f.endswith('.json')]
