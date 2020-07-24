@@ -301,7 +301,7 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
         logging.info('Getting file sizes for manifest')
         listing_sz = {f: os.path.getsize(f) for f in listing_manifest}
-        time.sleep(10)
+        time.sleep(30)
         listing_manifest, json_file = get_listing_manifest(proc=proc)
         logging.info('Checking file sizes again')
         listing_sz2 = {f: os.path.getsize(f) for f in listing_manifest}
