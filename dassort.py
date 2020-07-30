@@ -15,11 +15,13 @@ from copy import deepcopy
 @click.option('--max-time', '-m', type=float, default=600)
 @click.option('--dry-run', type=bool, is_flag=True)
 @click.option('--copy-protocol', '-p', type=str, default='scp')
+@click.option('--copy-retries', type=int, default=6)
+@click.option('--copy-sleep', type=float, default=2)
 @click.option('--delete', type=bool, is_flag=True)
 @click.option('--remote-host', '-r', type=str, envvar='DASSORT_HOST', default='transfer.rc.hms.harvard.edu')
 @click.option('--cmd-host', '-c', type=str, envvar='DASSORT_CMDHOST', default='o2.hms.harvard.edu')
 @click.option('--remote-user', '-u', type=str, envvar='DASSORT_USER', default='johanedoe')
-def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, delete, remote_host, cmd_host, remote_user):
+def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, copy_retries, copy_sleep, delete, remote_host, cmd_host, remote_user):
     """Main outer loop for watching files
 
     """
@@ -116,12 +118,16 @@ def dassort(source, destination, wait_time, max_time, dry_run, copy_protocol, de
                                             base_dict=use_config[0][0],
                                             dry_run=dry_run,
                                             delete=delete,
+                                            copy_retries=copy_retries,
+                                            copy_sleep=copy_sleep,
                                             remote_options=use_config[0][1])
             else:
                 proc_count = proc_loop(listing=listing_total,
                                        base_dict=configs[0][1],
                                        dry_run=dry_run,
                                        delete=delete,
+                                       copy_retries=copy_retries,
+                                       copy_sleep=copy_sleep,
                                        remote_options=configs[0][2])
 
             if proc_count == 0:
