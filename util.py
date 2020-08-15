@@ -397,7 +397,7 @@ def proc_loop(listing, base_dict, dry_run, delete, copy_retries, copy_sleep, rem
                     status = os.system(dir_cmd)
                     if status != 0:
                         time.sleep(sleep_time)
-                        logging.info('Retrying file copy...')
+                        logging.info('Retrying directory command...')
                         sleep_time *= 2
                         nretries += 1
 
@@ -407,10 +407,11 @@ def proc_loop(listing, base_dict, dry_run, delete, copy_retries, copy_sleep, rem
                     status = 1
                     nretries = 0
                     sleep_time = deepcopy(copy_sleep)
-                    while (status == 1) and (nretries < copy_retries):
+                    while (status != 0) and (nretries < copy_retries):
                         status = os.system(cp_cmd)
-                        if status == 1:
+                        if status != 0:
                             time.sleep(sleep_time)
+                            logging.info('Retrying copy command...')
                             sleep_time *= 2
                             nretries += 1
                 
