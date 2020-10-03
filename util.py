@@ -6,6 +6,7 @@ import os
 import time
 import hashlib
 from itertools import cycle
+from copy import deepcopy
 
 
 # https://stackoverflow.com/questions/1131220/get-md5-hash-of-big-files-in-python
@@ -277,7 +278,7 @@ def parse_router(router, dirs, files):
     return router_status
 
 
-def proc_loop(listing, base_dict, dry_run, delete, remote_options):
+def proc_loop(listing, base_dict, dry_run, delete, copy_retries, copy_sleep, remote_options):
     """Main processing loop
 
     """
@@ -362,7 +363,7 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
         logging.info('Sending manifest to ' + new_path)
 
         # aiight dawg, one trigger per manifest?
-
+        all_status = []
         for f in listing_manifest:
             if remote_options['copy_protocol'] == 'scp':
                 # dir check
@@ -387,15 +388,33 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
 
             logging.info('Chk command:  ' + dir_cmd)
             logging.info('Copy command: ' + cp_cmd)
-
             if not dry_run:
-                status = os.system(dir_cmd)
+                # add retries here...
+                status = 1
+                nretries = 0
+                sleep_time = deepcopy(copy_sleep)
+                while (status != 0) and (nretries < copy_retries):
+                    status = os.system(dir_cmd)
+                    if status != 0:
+                        time.sleep(sleep_time)
+                        logging.info('Retrying directory command...')
+                        sleep_time *= 2
+                        nretries += 1
 
                 if status == 0:
-                    logging.info(
-                        'Directory creation/check succesful, copying...')
-                    status = os.system(cp_cmd)
-
+                    logging.info('Directory creation/check succesful, copying...')
+                    # add retries here...
+                    status = 1
+                    nretries = 0
+                    sleep_time = deepcopy(copy_sleep)
+                    while (status != 0) and (nretries < copy_retries):
+                        status = os.system(cp_cmd)
+                        if status != 0:
+                            time.sleep(sleep_time)
+                            logging.info('Retrying copy command...')
+                            sleep_time *= 2
+                            nretries += 1
+                
                 if local_copy:
                     # check md5
                     logging.info('Checking file integrity...')
@@ -407,6 +426,9 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
                     md5checksum = md5_original == md5_copy
                     logging.info('MD5checksum: ' + str(md5checksum))
                     status = status & (not md5checksum)
+
+                # will be 1 if either copy or directory creation fails
+                all_status.append(status)
 
                 if status == 0 and delete:
                     logging.info('Copy succeeded, deleting file')
@@ -420,6 +442,10 @@ def proc_loop(listing, base_dict, dry_run, delete, remote_options):
                     continue
             elif dry_run and delete:
                 logging.info('Would delete: ' + os.path.join(new_path, f))
+
+        if any(all_status):
+            logging.info('Directory creation or file copy failure in manifest, skipping commands...')
+            continue
 
         issue_options = {
             'user': '',
